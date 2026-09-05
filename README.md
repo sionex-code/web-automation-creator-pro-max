@@ -1,245 +1,245 @@
 # Web Automation Creator Pro Max
 
-A powerful Claude agent skill for building, repairing, and packaging browser automations with the Open Automation Creator runtime. Create verified web automation scripts without manually writing selectors or YAML configurations.
+A cross-agent skill for building, repairing, and packaging browser automations. It works with Claude Code, Codex, Antigravity, OpenCode, and other compatible agent systems, using a shared runtime and a strict, verification-first workflow.
+
+Instead of guessing CSS selectors or hand-writing scripts, the skill inspects the live page, captures real selectors, verifies them, and only then generates a runnable automation config.
+
+## Table of Contents
+
+- [Supported Agents](#supported-agents)
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Workflow](#workflow)
+- [Examples](#examples)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Core Rules](#core-rules)
+- [Packaging for Multiple Agents](#packaging-for-multiple-agents)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Supported Agents
+
+| Agent System | Status | Notes |
+|---|---|---|
+| Claude Code | Supported | Install as a skill under `~/.claude/skills` |
+| Codex | Supported | Install via the `codex` packaging target |
+| Antigravity | Supported | Install via the generic `agents` packaging target |
+| OpenCode | Supported | Install via the `opencode` packaging target |
+| Other agent systems | Supported | Any system that can read a skill bundle and run a Python runtime can use the generic `agents` target |
 
 ## Overview
 
-Web Automation Creator Pro Max is designed to help you build reliable browser automations through a guided workflow. The skill handles:
+Web Automation Creator Pro Max is built around one principle: an automation is only trustworthy if it was verified on the real page. The skill leads a short, non-technical conversation with the user, then takes over all the technical work: page inspection, selector discovery, config writing, and incremental testing.
+
+It handles:
 
 - Creating new automations for any website
-- Repairing broken automation configurations
-- Discovering and verifying live selectors from web pages
-- Building reusable agent skills from automation configs
-- Packaging automations for use with Claude Code, Codex, OpenCode, and compatible agent systems
+- Repairing automations that broke after a site update
+- Discovering and verifying live selectors instead of guessing them
+- Generating reusable YAML configs
+- Packaging the runtime and configs into an installable skill for multiple agent platforms
 
 ## Key Features
 
-- **Live Page Inspection**: Uses browser tooling and MCP to inspect real pages and capture actual selectors
-- **Selector Verification**: Verifies important selectors before locking them into configs
-- **No Guess Work**: Captures selectors from live pages instead of guessing CSS or XPath
-- **User-Friendly**: Designed for non-technical users - no need to know selectors, YAML, or script structure
-- **Incremental Verification**: Test your automations step-by-step before final runs
-- **Reusable Packages**: Create installable skills for use across multiple systems
+- **Live page inspection**: uses browser automation and MCP tooling to load the real page and read its actual structure
+- **Verified selectors**: every selector is checked against the live page before it is written into a config
+- **No blind scripting**: never falls back to a handwritten script just because it seems faster
+- **Non-technical front end**: the user answers plain-language questions, never selectors, XPath, or YAML
+- **Incremental execution**: automations are tested in small steps before a full run
+- **Safety checkpoints**: execution pauses before destructive or public actions (submit, publish, delete)
+- **Multi-agent packaging**: one config can be installed across Claude Code, Codex, Antigravity, OpenCode, and other systems
 
 ## Installation
 
-### For Claude Code Users
+### Option 1: Claude Code
 
-Install this skill directly in Claude Code:
-
-```bash
-# The skill is available via the Claude Code skill registry
-```
-
-### For Manual Installation
-
-1. Clone this repository:
 ```bash
 git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cp -r web-automation-creator-pro-max ~/.claude/skills/automation-creator-builder
 ```
 
-2. Copy to your Claude Code skills directory:
-```bash
-cp -r web-automation-creator-pro-max ~/.claude/skills/
-```
+Restart Claude Code. The skill becomes available as `/automation-creator-builder`.
 
-3. Restart Claude Code to see the skill available
-
-## Usage
-
-### Quick Start
-
-Invoke the skill with:
-```
-/automation-creator-builder
-```
-
-Or type the command and describe what you want to automate.
-
-### Typical Workflow
-
-1. **Describe Your Goal**: Tell the skill what website and outcome you need
-   - The skill asks 2-4 short non-technical questions
-   - Answer with natural language (no technical details needed)
-
-2. **Live Discovery**: The skill inspects the target website
-   - Uses browser tools to navigate to the page
-   - Captures and screenshots the UI elements
-   - Identifies interactive elements automatically
-
-3. **Selector Verification**: Important selectors are tested on the live page
-   - The skill shows you what it found
-   - Verifies each selector works correctly
-   - Makes adjustments if needed
-
-4. **Config Generation**: The skill writes an automation configuration
-   - Creates a YAML config ready to use
-   - No manual editing needed
-
-5. **Incremental Testing**: Run the automation step-by-step
-   - Test first 2 steps, then first 5, then full run
-   - Verify each stage works before moving forward
-   - Stop before any destructive actions for safety
-
-6. **Packaging (Optional)**: Convert to a reusable installable skill
-   - Package the automation for team use
-   - Install across Codex, Claude Code, OpenCode, or compatible systems
-
-## Examples
-
-### Example 1: Scraping a Website
-
-```
-I want to scrape product names and prices from an e-commerce site
-```
-
-The skill will:
-- Ask which site and what output format you need
-- Navigate to the page and discover selectors for product names and prices
-- Create a config to extract and save the data
-- Test it step by step
-
-### Example 2: Form Filling
-
-```
-I need to fill out a contact form and submit it
-```
-
-The skill will:
-- Ask for the form URL and details to fill in
-- Discover form field selectors
-- Create a config to populate and submit the form
-- Stop before submission for your confirmation
-
-### Example 3: Repairing a Broken Automation
-
-```
-This automation used to work but now fails
-```
-
-Provide your existing config and the skill will:
-- Test it on the live page
-- Find what broke (selector changes, page layout updates)
-- Update selectors and fix the configuration
-- Verify the repair works
-
-## How It Works
-
-The skill leverages the **Open Automation Creator** runtime to:
-
-1. **Navigate and Inspect**: Visits target websites using a real browser
-2. **Capture Selectors**: Records CSS selectors and XPath expressions from live elements
-3. **Generate Configs**: Creates YAML automation configurations automatically
-4. **Test Incrementally**: Runs automations step-by-step with verification checkpoints
-5. **Package for Reuse**: Wraps automations into installable skills
-
-## Configuration Files
-
-### agents/openai.yaml
-
-Defines the skill interface for OpenAI-compatible agent systems:
-
-```yaml
-interface:
-  display_name: "Open Automation Creator Builder"
-  short_description: "Create verified browser automation skills"
-  default_prompt: "Build or repair a browser automation skill..."
-```
-
-### SKILL.md
-
-The main skill definition containing:
-- Complete workflow documentation
-- Non-negotiable rules for reliability
-- Packaging instructions
-- Deliverables checklist
-
-## Requirements
-
-- Claude Code or compatible agent system
-- Open Automation Creator runtime installed locally
-- Access to live websites you want to automate
-- Python 3.8 or higher (for the automation runtime)
-
-## Non-Negotiable Rules
-
-These rules ensure your automations are reliable and safe:
-
-1. Never guess selectors without live page inspection
-2. Never ask users for technical implementation details
-3. Never write configs before capturing real selectors
-4. Never replace config tasks with handwritten scripts
-5. Always verify selectors work on the live page
-6. Always test automations before final runs
-7. Always request confirmation before destructive actions
-
-## Packaging for Distribution
-
-To package this skill for use across multiple systems:
+### Option 2: Codex
 
 ```bash
-cd /path/to/automation-runtime
-.venv/bin/python scripts/install_agent_bundle.py
-```
-
-For specific targets:
-```bash
-.venv/bin/python scripts/install_agent_bundle.py --target claude
+git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cd web-automation-creator-pro-max
 .venv/bin/python scripts/install_agent_bundle.py --target codex
+```
+
+### Option 3: Antigravity
+
+```bash
+git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cd web-automation-creator-pro-max
+.venv/bin/python scripts/install_agent_bundle.py --target agents
+```
+
+Antigravity and similar general agent frameworks use the generic `agents` target, which installs the runtime and skill bundle without assuming a specific host application.
+
+### Option 4: OpenCode
+
+```bash
+git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cd web-automation-creator-pro-max
 .venv/bin/python scripts/install_agent_bundle.py --target opencode
 ```
 
+### Option 5: Any Other Compatible Agent System
+
+If your platform can load a skill bundle and run a local Python process, use the generic target:
+
+```bash
+.venv/bin/python scripts/install_agent_bundle.py --target agents
+```
+
+Then point your agent's skill or tool configuration at the installed bundle path printed by the script.
+
+## Usage
+
+Once installed, invoke the skill in natural language. For example:
+
+```
+Build an automation that logs into my dashboard and downloads the monthly report
+```
+
+The skill starts the conversation, so no special syntax is required beyond describing the goal.
+
+## Workflow
+
+The skill always follows the same sequence, regardless of host agent.
+
+1. **Short intake**: asks 2 to 4 plain-language questions
+   - Which site or URL
+   - What outcome you want
+   - Which account to use, if any
+   - Whether to stop before a public or destructive action
+
+2. **Live discovery**: opens the real page and captures its structure
+   - Uses browser or MCP tooling when available
+   - Saves screenshots and structured discovery artifacts
+
+3. **Selector verification**: checks each important selector against the live page before using it
+
+4. **Config generation**: writes a YAML automation config from verified selectors only
+
+5. **Incremental testing**: runs the automation in stages
+   - First few steps
+   - A larger partial run
+   - The full run, once earlier stages pass
+
+6. **Packaging (optional)**: wraps the finished automation into an installable skill for one or more agent systems
+
+## Examples
+
+### Scraping structured data
+
+Request:
+```
+Scrape product names and prices from this category page
+```
+
+Result: the skill discovers the product listing selectors, verifies them, writes a config, and runs it in stages to confirm the extracted data is correct.
+
+### Filling and submitting a form
+
+Request:
+```
+Fill out this contact form with the details I give you
+```
+
+Result: the skill discovers each form field selector, confirms them, fills the form, and pauses before the final submit step for confirmation.
+
+### Repairing a broken automation
+
+Request:
+```
+This automation worked last month but fails now
+```
+
+Result: the skill re-runs discovery on the live page, finds which selectors changed, updates the config, and verifies the repair before handing it back.
+
+## Project Structure
+
+```
+web-automation-creator-pro-max/
+  SKILL.md              Skill definition and required workflow
+  agents/
+    openai.yaml          Interface definition for OpenAI-compatible agents
+  configs/                Generated automation configs (created at runtime)
+  README.md
+  LICENSE
+```
+
+## Requirements
+
+- A host agent system: Claude Code, Codex, Antigravity, OpenCode, or another compatible platform
+- Python 3.8 or higher
+- The Open Automation Creator runtime
+- Network access to the websites you intend to automate
+
+## Core Rules
+
+These rules apply regardless of which agent system runs the skill.
+
+1. Never guess a selector. Every selector must come from live page inspection.
+2. Never ask the user for selectors, CSS, XPath, or YAML.
+3. Never write a config before selectors are captured and verified.
+4. Never substitute a handwritten script for a proper config, even if it seems quicker.
+5. Always prefer browser or MCP tooling for live inspection when it is available.
+6. Always verify an automation incrementally before a full run.
+7. Always pause for human confirmation before a destructive or public action.
+
+## Packaging for Multiple Agents
+
+A single automation can be packaged once and installed everywhere.
+
+```bash
+# Install for every supported target
+.venv/bin/python scripts/install_agent_bundle.py
+
+# Install for a specific target
+.venv/bin/python scripts/install_agent_bundle.py --target claude
+.venv/bin/python scripts/install_agent_bundle.py --target codex
+.venv/bin/python scripts/install_agent_bundle.py --target opencode
+.venv/bin/python scripts/install_agent_bundle.py --target agents
+```
+
+Use `--target agents` for Antigravity or any other agent framework that is not listed individually. It produces a portable bundle rather than a platform-specific one.
+
 ## Troubleshooting
 
-### Selectors Not Found
-- Ensure the page has fully loaded before the skill runs discovery
-- Check if the website requires authentication
-- Verify the page layout matches what you expect
+**Selectors are not found during discovery**
+- Confirm the page has fully loaded before discovery runs
+- Check whether the page requires authentication first
+- Confirm the page layout matches what was expected
 
-### Automation Fails After Page Updates
-- Run the skill again to discover updated selectors
-- Common cause: websites redesign or move elements
-- The skill can repair broken automations automatically
+**An automation that used to work now fails**
+- Re-run discovery on the live page to capture updated selectors
+- This is usually caused by a site redesign or an element being moved
+- The skill can repair the config automatically once new selectors are captured
 
-### Account-Specific Issues
-- Verify account credentials are correctly configured in accounts.yaml
-- Check if the account needs password reset or two-factor authentication
-- Test account access manually first
-
-## Support
-
-For issues, questions, or to contribute:
-
-1. Create an issue on GitHub with details of what went wrong
-2. Include the page URL and what you were trying to automate
-3. Attach any error messages or discovery artifacts
-4. Describe the expected vs actual outcome
-
-## License
-
-This project is provided as-is for use with Claude Code and compatible agent systems.
-
-## Related Resources
-
-- [Open Automation Creator Documentation](https://github.com/your-org/open-automation-creator)
-- [Claude Code Documentation](https://claude.ai/code)
-- [Agent Skills Guide](https://anthropic.com)
+**Account-related failures**
+- Confirm credentials in `configs/accounts.yaml` are current
+- Check for password resets or two-factor authentication prompts
+- Test the account manually in a browser before retrying
 
 ## Contributing
 
-To improve this skill:
+Contributions are welcome. Useful ways to help:
 
-1. Test new website automation patterns
-2. Share working configs and examples
-3. Report selector issues on specific websites
-4. Suggest workflow improvements
+- Report selector issues on specific websites
+- Share working configs for common automation patterns
+- Suggest improvements to the discovery or verification workflow
+- Add support for additional agent platforms
 
-## Changelog
+Please open an issue with the target site, the goal of the automation, and any error output or discovery artifacts.
 
-### Version 1.0 (2026-09-05)
-- Initial public release
-- Live page inspection with browser tools
-- Automatic selector discovery and verification
-- YAML config generation
-- Incremental testing workflow
-- Packaging for multiple agent systems
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE) for details.
