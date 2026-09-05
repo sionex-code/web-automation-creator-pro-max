@@ -55,50 +55,53 @@ It handles:
 
 ## Installation
 
-### Option 1: Claude Code
+No manual setup is required. Copy the prompt for your agent below, paste it in, and let the agent install itself. It will clone the repository, read the skill definition, and configure everything correctly for its own platform.
 
-```bash
-git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
-cp -r web-automation-creator-pro-max ~/.claude/skills/automation-creator-builder
+### Claude Code
+
+```
+Clone https://github.com/sionex-code/web-automation-creator-pro-max into a temp
+folder, read its SKILL.md and README.md, then install it as a Claude Code
+skill under ~/.claude/skills so I can use it as /automation-creator-builder.
+Set up any runtime dependencies it needs and confirm it is ready to use.
 ```
 
-Restart Claude Code. The skill becomes available as `/automation-creator-builder`.
+### Codex
 
-### Option 2: Codex
-
-```bash
-git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
-cd web-automation-creator-pro-max
-.venv/bin/python scripts/install_agent_bundle.py --target codex
+```
+Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
+SKILL.md and README.md, and install it for yourself as a Codex skill using
+its packaging script with the codex target. Set up any dependencies it needs
+and confirm it is ready to use.
 ```
 
-### Option 3: Antigravity
+### Antigravity
 
-```bash
-git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
-cd web-automation-creator-pro-max
-.venv/bin/python scripts/install_agent_bundle.py --target agents
+```
+Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
+SKILL.md and README.md, and install it for yourself using its packaging
+script with the generic agents target. Set up any dependencies it needs and
+confirm it is ready to use.
 ```
 
-Antigravity and similar general agent frameworks use the generic `agents` target, which installs the runtime and skill bundle without assuming a specific host application.
+### OpenCode
 
-### Option 4: OpenCode
-
-```bash
-git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
-cd web-automation-creator-pro-max
-.venv/bin/python scripts/install_agent_bundle.py --target opencode
+```
+Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
+SKILL.md and README.md, and install it for yourself as an OpenCode skill
+using its packaging script with the opencode target. Set up any dependencies
+it needs and confirm it is ready to use.
 ```
 
-### Option 5: Any Other Compatible Agent System
+### Any Other Compatible Agent System
 
-If your platform can load a skill bundle and run a local Python process, use the generic target:
-
-```bash
-.venv/bin/python scripts/install_agent_bundle.py --target agents
 ```
-
-Then point your agent's skill or tool configuration at the installed bundle path printed by the script.
+Clone https://github.com/sionex-code/web-automation-creator-pro-max and read
+its SKILL.md and README.md. Figure out how your platform loads skills, then
+install this one for yourself using its packaging script (the generic agents
+target works if nothing more specific applies). Set up any dependencies it
+needs and confirm it is ready to use.
+```
 
 ## Usage
 
@@ -195,22 +198,22 @@ These rules apply regardless of which agent system runs the skill.
 6. Always verify an automation incrementally before a full run.
 7. Always pause for human confirmation before a destructive or public action.
 
-## Packaging for Multiple Agents
+## How the Installation Prompts Work
 
-A single automation can be packaged once and installed everywhere.
+Under the hood, every installation prompt above runs the same packaging script. This is what your agent executes on your behalf, so you never have to run it manually.
 
 ```bash
-# Install for every supported target
+# Install for every supported target at once
 .venv/bin/python scripts/install_agent_bundle.py
 
-# Install for a specific target
+# Install for one specific target
 .venv/bin/python scripts/install_agent_bundle.py --target claude
 .venv/bin/python scripts/install_agent_bundle.py --target codex
 .venv/bin/python scripts/install_agent_bundle.py --target opencode
 .venv/bin/python scripts/install_agent_bundle.py --target agents
 ```
 
-Use `--target agents` for Antigravity or any other agent framework that is not listed individually. It produces a portable bundle rather than a platform-specific one.
+The `agents` target is the generic one, used for Antigravity and any other framework without a dedicated target. It produces a portable bundle rather than a platform-specific one. You only need these commands directly if you are scripting the install yourself instead of asking your agent to do it.
 
 ## Troubleshooting
 
