@@ -1,17 +1,21 @@
 # Web Automation Creator Pro Max
 
-A complete browser automation runtime plus a cross-agent skill on top of it. Clone this repository and you have everything needed to build, run, repair, and package browser automations, no separate download required. It works with Claude Code, Codex, Antigravity, OpenCode, and other compatible agent systems, and just as well from a plain terminal.
+A complete browser automation runtime with an agent skill built on top of it. Clone this repository and you have everything needed to discover, build, run, repair, and package browser automations, no separate download required.
 
-Instead of guessing CSS selectors or hand-writing scripts, the runtime inspects the live page, captures real selectors, verifies them, and only then generates a runnable automation config.
+It runs two ways:
+
+1. **Directly from the command line**, driving the runtime yourself
+2. **Through an agent** (Claude Code, Codex, Antigravity, OpenCode, or another compatible system), which leads a short conversation and does the technical work for you
+
+Either way, the same principle applies: an automation is only trustworthy once it has been verified against the real page. The runtime inspects the live page, captures real selectors, verifies them, and only then generates a runnable automation config. It never guesses.
 
 ## Table of Contents
 
 - [Supported Agents](#supported-agents)
-- [Overview](#overview)
 - [Key Features](#key-features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Direct CLI Usage](#direct-cli-usage)
+- [Quick Start (Command Line)](#quick-start-command-line)
+- [Agent Installation](#agent-installation)
+- [Using the Skill Through an Agent](#using-the-skill-through-an-agent)
 - [Workflow](#workflow)
 - [Examples](#examples)
 - [Project Structure](#project-structure)
@@ -24,39 +28,67 @@ Instead of guessing CSS selectors or hand-writing scripts, the runtime inspects 
 
 ## Supported Agents
 
-| Agent System | Status | Notes |
-|---|---|---|
-| Claude Code | Supported | Install as a skill under `~/.claude/skills` |
-| Codex | Supported | Install via the `codex` packaging target |
-| Antigravity | Supported | Install via the generic `agents` packaging target |
-| OpenCode | Supported | Install via the `opencode` packaging target |
-| Other agent systems | Supported | Any system that can read a skill bundle and run a Python runtime can use the generic `agents` target |
+| Agent System | Notes |
+|---|---|
+| Claude Code | Installs as a skill under `~/.claude/skills` |
+| Codex | Installs via the `codex` packaging target |
+| Antigravity | Installs via the generic `agents` packaging target |
+| OpenCode | Installs via the `opencode` packaging target |
+| Other agent systems | Any system that can load a skill bundle and run a local Python process can use the generic `agents` target |
 
-## Overview
-
-Web Automation Creator Pro Max is built around one principle: an automation is only trustworthy if it was verified on the real page. The skill leads a short, non-technical conversation with the user, then takes over all the technical work: page inspection, selector discovery, config writing, and incremental testing.
-
-It handles:
-
-- Creating new automations for any website
-- Repairing automations that broke after a site update
-- Discovering and verifying live selectors instead of guessing them
-- Generating reusable YAML configs
-- Packaging the runtime and configs into an installable skill for multiple agent platforms
+The runtime itself has no agent dependency. Everything above is optional convenience on top of it.
 
 ## Key Features
 
 - **Live page inspection**: uses browser automation and MCP tooling to load the real page and read its actual structure
 - **Verified selectors**: every selector is checked against the live page before it is written into a config
 - **No blind scripting**: never falls back to a handwritten script just because it seems faster
-- **Non-technical front end**: the user answers plain-language questions, never selectors, XPath, or YAML
+- **Non-technical front end**: when driven by an agent, the user answers plain-language questions, never selectors, XPath, or YAML
 - **Incremental execution**: automations are tested in small steps before a full run
-- **Safety checkpoints**: execution pauses before destructive or public actions (submit, publish, delete)
-- **Multi-agent packaging**: one config can be installed across Claude Code, Codex, Antigravity, OpenCode, and other systems
+- **Safety checkpoints**: execution pauses before destructive or public actions such as submit, publish, or delete
+- **Multi-agent packaging**: one automation can be installed across Claude Code, Codex, Antigravity, OpenCode, and other systems
 
-## Installation
+## Quick Start (Command Line)
 
-No manual setup is required. Copy the prompt for your agent below, paste it in, and let the agent install itself. It will clone the repository, read the skill definition, and configure everything correctly for its own platform.
+This is the foundation everything else builds on. It works with no agent involved.
+
+```bash
+git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cd web-automation-creator-pro-max
+
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+Set up your accounts, if any automation needs a login:
+
+```bash
+cp configs/accounts.yaml.example configs/accounts.yaml
+# edit configs/accounts.yaml with your own details
+```
+
+Discover real selectors on a live page:
+
+```bash
+.venv/bin/python run.py --discover-url "https://example.com" --pause --snapshot-mode full
+```
+
+Verify a specific selector before trusting it:
+
+```bash
+.venv/bin/python run.py --discover-url "https://example.com" --check-selector "#login-button"
+```
+
+Run a config incrementally, then in full:
+
+```bash
+.venv/bin/python run.py configs/scrape_example.yaml --through-step 2
+.venv/bin/python run.py configs/scrape_example.yaml
+```
+
+## Agent Installation
+
+If you want the guided, conversational version of this workflow, install the skill into your agent of choice. Paste the matching prompt below and let the agent handle it. Each one clones the repository, sets up the runtime from the Quick Start steps above, and registers the skill in the right place for that platform.
 
 ### Claude Code
 
@@ -64,7 +96,8 @@ No manual setup is required. Copy the prompt for your agent below, paste it in, 
 Clone https://github.com/sionex-code/web-automation-creator-pro-max into a temp
 folder, read its SKILL.md and README.md, then install it as a Claude Code
 skill under ~/.claude/skills so I can use it as /automation-creator-builder.
-Set up any runtime dependencies it needs and confirm it is ready to use.
+Set up the Python virtual environment and dependencies, then confirm it is
+ready to use.
 ```
 
 ### Codex
@@ -72,8 +105,8 @@ Set up any runtime dependencies it needs and confirm it is ready to use.
 ```
 Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
 SKILL.md and README.md, and install it for yourself as a Codex skill using
-its packaging script with the codex target. Set up any dependencies it needs
-and confirm it is ready to use.
+its packaging script with the codex target. Set up the Python virtual
+environment and dependencies, then confirm it is ready to use.
 ```
 
 ### Antigravity
@@ -81,8 +114,8 @@ and confirm it is ready to use.
 ```
 Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
 SKILL.md and README.md, and install it for yourself using its packaging
-script with the generic agents target. Set up any dependencies it needs and
-confirm it is ready to use.
+script with the generic agents target. Set up the Python virtual environment
+and dependencies, then confirm it is ready to use.
 ```
 
 ### OpenCode
@@ -90,8 +123,8 @@ confirm it is ready to use.
 ```
 Clone https://github.com/sionex-code/web-automation-creator-pro-max, read its
 SKILL.md and README.md, and install it for yourself as an OpenCode skill
-using its packaging script with the opencode target. Set up any dependencies
-it needs and confirm it is ready to use.
+using its packaging script with the opencode target. Set up the Python
+virtual environment and dependencies, then confirm it is ready to use.
 ```
 
 ### Any Other Compatible Agent System
@@ -100,66 +133,29 @@ it needs and confirm it is ready to use.
 Clone https://github.com/sionex-code/web-automation-creator-pro-max and read
 its SKILL.md and README.md. Figure out how your platform loads skills, then
 install this one for yourself using its packaging script (the generic agents
-target works if nothing more specific applies). Set up any dependencies it
-needs and confirm it is ready to use.
+target works if nothing more specific applies). Set up the Python virtual
+environment and dependencies, then confirm it is ready to use.
 ```
 
-## Usage
+## Using the Skill Through an Agent
 
-Once installed, invoke the skill in natural language. For example:
+Once installed, describe the goal in plain language. For example:
 
 ```
 Build an automation that logs into my dashboard and downloads the monthly report
 ```
 
-The skill starts the conversation, so no special syntax is required beyond describing the goal.
-
-## Direct CLI Usage
-
-The runtime works on its own, without any agent in the loop, if you want to drive it by hand.
-
-```bash
-git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
-cd web-automation-creator-pro-max
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-# Discover selectors on a live page
-.venv/bin/python run.py --discover-url "https://example.com" --pause --snapshot-mode full
-
-# Verify a specific selector
-.venv/bin/python run.py --discover-url "https://example.com" --check-selector "#login-button"
-
-# Run a config, one step at a time, then in full
-.venv/bin/python run.py configs/scrape_example.yaml --through-step 2
-.venv/bin/python run.py configs/scrape_example.yaml
-```
-
-Copy `configs/accounts.yaml.example` to `configs/accounts.yaml` and fill in your own accounts before running configs that need a login.
+The agent asks a few short, non-technical questions, then handles page inspection, selector discovery, config writing, and testing on its own.
 
 ## Workflow
 
-The skill always follows the same sequence, regardless of host agent.
+Both the command line and the agent-driven skill follow the same sequence.
 
-1. **Short intake**: asks 2 to 4 plain-language questions
-   - Which site or URL
-   - What outcome you want
-   - Which account to use, if any
-   - Whether to stop before a public or destructive action
-
-2. **Live discovery**: opens the real page and captures its structure
-   - Uses browser or MCP tooling when available
-   - Saves screenshots and structured discovery artifacts
-
+1. **Short intake**: which site, what outcome, which account if any, and whether to stop before a public or destructive action
+2. **Live discovery**: opens the real page and captures its structure, using browser or MCP tooling when available, saving screenshots and structured artifacts
 3. **Selector verification**: checks each important selector against the live page before using it
-
 4. **Config generation**: writes a YAML automation config from verified selectors only
-
-5. **Incremental testing**: runs the automation in stages
-   - First few steps
-   - A larger partial run
-   - The full run, once earlier stages pass
-
+5. **Incremental testing**: runs the automation in stages, first a few steps, then a larger partial run, then the full run once earlier stages pass
 6. **Packaging (optional)**: wraps the finished automation into an installable skill for one or more agent systems
 
 ## Examples
@@ -171,7 +167,7 @@ Request:
 Scrape product names and prices from this category page
 ```
 
-Result: the skill discovers the product listing selectors, verifies them, writes a config, and runs it in stages to confirm the extracted data is correct.
+Result: selectors for the product listing are discovered and verified, a config is written, and it runs in stages to confirm the extracted data is correct.
 
 ### Filling and submitting a form
 
@@ -180,7 +176,7 @@ Request:
 Fill out this contact form with the details I give you
 ```
 
-Result: the skill discovers each form field selector, confirms them, fills the form, and pauses before the final submit step for confirmation.
+Result: each form field selector is discovered and confirmed, the form is filled, and execution pauses before the final submit step for confirmation.
 
 ### Repairing a broken automation
 
@@ -189,49 +185,49 @@ Request:
 This automation worked last month but fails now
 ```
 
-Result: the skill re-runs discovery on the live page, finds which selectors changed, updates the config, and verifies the repair before handing it back.
+Result: discovery re-runs on the live page, the changed selectors are found, the config is updated, and the repair is verified before being handed back.
 
 ## Project Structure
 
 ```
 web-automation-creator-pro-max/
-  SKILL.md                 Skill definition and required workflow
-  RUNTIME_GUIDE.md          Full reference guide for the runtime (source of truth)
-  INSTALL_SKILL.md          Step by step install and packaging reference
-  run.py                    CLI entry point for discovery and running configs
-  requirements.txt          Python dependencies
+  SKILL.md                    Agent skill definition and required workflow
+  RUNTIME_GUIDE.md             Full reference guide for the runtime
+  INSTALL_SKILL.md             Step by step install and packaging reference
+  run.py                       CLI entry point for discovery and running configs
+  requirements.txt             Python dependencies
   agents/
-    openai.yaml              Interface definition for OpenAI-compatible agents
+    openai.yaml                 Interface definition for OpenAI-compatible agents
   core/
-    engine.py                 Runs automation configs step by step
-    discovery.py               Live page inspection and selector discovery
-    snapshot.py                 Compact page-state capture
-    browser.py                  Browser session management
-    account_manager.py          Loads and resolves accounts.yaml
-    config_loader.py            Parses and validates YAML configs
-    interactive.py              Pause and confirm prompts
-    markdown_tools.py           Markdown file handling for publishing configs
-    console.py                  Terminal output formatting
+    engine.py                    Runs automation configs step by step
+    discovery.py                  Live page inspection and selector discovery
+    snapshot.py                    Compact page-state capture
+    browser.py                     Browser session management
+    account_manager.py             Loads and resolves accounts.yaml
+    config_loader.py                Parses and validates YAML configs
+    interactive.py                  Pause and confirm prompts
+    markdown_tools.py               Markdown file handling for publishing configs
+    console.py                      Terminal output formatting
   scripts/
-    install_agent_bundle.py      Packages and installs skills for every target
-    select_facebook_groups.py    Narrows a saved group catalog by relevance
+    install_agent_bundle.py         Packages and installs skills for every target
+    select_facebook_groups.py       Narrows a saved group catalog by relevance
   bundles/
-    facebook-group-poster/        Skill template for Facebook group posting
+    facebook-group-poster/           Skill template for Facebook group posting
     linkedin-markdown-article-publisher/  Skill template for LinkedIn publishing
-    medium-markdown-story-publisher/      Skill template for Medium publishing
-    pastebin/                      Skill template for Pastebin publishing
+    medium-markdown-story-publisher/       Skill template for Medium publishing
+    pastebin/                          Skill template for Pastebin publishing
   configs/
-    accounts.yaml.example          Template for your own accounts.yaml
-    scrape_example.yaml            Minimal scraping example
-    linkedin_*.yaml                 LinkedIn posting and publishing examples
-    pastebin_*.yaml                  Pastebin publishing examples
-    medium_markdown_story_publish.yaml  Medium publishing example
-    facebook_group_*.yaml            Facebook group discovery and posting examples
+    accounts.yaml.example              Template for your own accounts.yaml
+    scrape_example.yaml                Minimal scraping example
+    linkedin_*.yaml                     LinkedIn posting and publishing examples
+    pastebin_*.yaml                      Pastebin publishing examples
+    medium_markdown_story_publish.yaml   Medium publishing example
+    facebook_group_*.yaml                Facebook group discovery and posting examples
   README.md
   LICENSE
 ```
 
-Running the runtime creates a few local directories that are never committed: `configs/accounts.yaml` (your real credentials), `profiles/` (browser session data), `screenshots/`, and `output/`. These are already listed in `.gitignore`.
+Running the runtime creates local directories that are never committed: `configs/accounts.yaml` holds your real credentials, `profiles/` holds browser session data, and `screenshots/` and `output/` hold run artifacts. All four are already listed in `.gitignore`.
 
 ## Requirements
 
@@ -241,7 +237,7 @@ Running the runtime creates a few local directories that are never committed: `c
 
 ## Core Rules
 
-These rules apply regardless of which agent system runs the skill.
+These rules hold regardless of whether the runtime is driven by hand or by an agent.
 
 1. Never guess a selector. Every selector must come from live page inspection.
 2. Never ask the user for selectors, CSS, XPath, or YAML.
@@ -251,9 +247,9 @@ These rules apply regardless of which agent system runs the skill.
 6. Always verify an automation incrementally before a full run.
 7. Always pause for human confirmation before a destructive or public action.
 
-## How the Installation Prompts Work
+## Packaging for Multiple Agents
 
-Under the hood, every installation prompt above runs the same packaging script. This is what your agent executes on your behalf, so you never have to run it manually.
+A single automation, or the whole runtime, can be packaged once and installed everywhere. This is the script every agent installation prompt above runs on your behalf.
 
 ```bash
 # Install for every supported target at once
@@ -264,9 +260,15 @@ Under the hood, every installation prompt above runs the same packaging script. 
 .venv/bin/python scripts/install_agent_bundle.py --target codex
 .venv/bin/python scripts/install_agent_bundle.py --target opencode
 .venv/bin/python scripts/install_agent_bundle.py --target agents
+
+# Install only specific bundled skills
+.venv/bin/python scripts/install_agent_bundle.py --bundle automation-creator-builder pastebin
+
+# Preview what would happen without writing anything
+.venv/bin/python scripts/install_agent_bundle.py --dry-run
 ```
 
-The `agents` target is the generic one, used for Antigravity and any other framework without a dedicated target. It produces a portable bundle rather than a platform-specific one. You only need these commands directly if you are scripting the install yourself instead of asking your agent to do it.
+The `agents` target is the generic one, used for Antigravity and any other framework without a dedicated target. It produces a portable bundle rather than a platform-specific one. See `INSTALL_SKILL.md` for the full list of options.
 
 ## Troubleshooting
 
@@ -278,7 +280,7 @@ The `agents` target is the generic one, used for Antigravity and any other frame
 **An automation that used to work now fails**
 - Re-run discovery on the live page to capture updated selectors
 - This is usually caused by a site redesign or an element being moved
-- The skill can repair the config automatically once new selectors are captured
+- The runtime can repair the config once new selectors are captured
 
 **Account-related failures**
 - Confirm credentials in `configs/accounts.yaml` are current
