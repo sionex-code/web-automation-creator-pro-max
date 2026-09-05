@@ -1,0 +1,60 @@
+name: "Pastebin Create Paste Direct"
+description: "Create a new paste on Pastebin with pre-provided content"
+version: "1.0"
+
+variables:
+  paste_content: "Hello World! This is a test paste."
+  paste_title: "Test Paste"
+
+settings:
+  slow_mo: 100
+  profile: "default"
+  headless: false
+
+on_error: pause
+
+steps:
+  - action: goto
+    url: "https://pastebin.com"
+    description: "Navigate to Pastebin homepage"
+
+  - action: wait
+    duration: 2000
+    description: "Wait for page to fully load"
+
+  - action: verify
+    check: selector_exists
+    selector: "#postform-text"
+    description: "Verify paste textarea is available"
+
+  - action: type
+    selector: "#postform-text"
+    text: "{{paste_content}}"
+    description: "Type paste content into textarea"
+
+  - action: type
+    selector: "#postform-name"
+    text: "{{paste_title}}"
+    optional: true
+    description: "Type paste title"
+
+  - action: click
+    selector: "button.btn.-big"
+    description: "Click the 'Create New Paste' button"
+
+  - action: wait
+    duration: 15000
+    description: "Wait for paste to be created and Cloudflare check to complete"
+
+  - action: js_eval
+    code: "window.location.href"
+    save_to_variable: paste_url
+    description: "Extract the paste URL from browser"
+
+  - action: console_log
+    message: "Paste created successfully! URL: {{paste_url}}"
+    description: "Display the paste URL"
+
+  - action: wait
+    duration: 5000
+    description: "Keep browser open to view the result"

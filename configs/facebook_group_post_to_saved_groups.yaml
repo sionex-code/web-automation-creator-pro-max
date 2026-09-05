@@ -1,0 +1,178 @@
+name: "Facebook Group Batch Poster"
+description: "Load a selected Facebook groups JSON file, open each group, and attempt to publish the provided content"
+version: "1.0"
+
+variables:
+  groups_json_path: ""
+  post_content: ""
+  publish_batch: ""
+  facebook_login_ready: ""
+
+settings:
+  slow_mo: 80
+  profile: "default"
+  account_platform: "facebook"
+
+on_error: pause
+
+steps:
+  - action: conditional
+    condition: "{{groups_json_path}} == "
+    then:
+      - action: user_input
+        prompt: "Enter the JSON path for the selected Facebook groups file:"
+        default: "output/facebook_groups.selected.json"
+        save_to_variable: groups_json_path
+        description: "Resolve the selected-groups JSON path"
+    description: "Make sure the groups JSON path is available"
+
+  - action: load_json
+    path: "{{groups_json_path}}"
+    root_key: groups
+    save_to_variable: target_groups
+    display: true
+    description: "Load the selected Facebook groups"
+
+  - action: conditional
+    condition: "{{post_content}} == "
+    then:
+      - action: user_input
+        prompt: "Enter the content you want to post to the selected Facebook groups:"
+        save_to_variable: post_content
+        description: "Collect the post content"
+    description: "Resolve the post content"
+
+  - action: goto
+    url: "https://www.facebook.com/groups/feed/"
+    wait_until: domcontentloaded
+    description: "Open Facebook groups feed"
+
+  - action: wait
+    timeout: 2500
+    description: "Let Facebook settle"
+
+  - action: verify
+    check: url_contains
+    url: "/groups/"
+    optional: true
+    timeout: 8000
+    description: "Check whether the Facebook groups area is available"
+
+  - action: conditional
+    condition: "{{_verify_result}}"
+    else:
+      - action: user_input
+        prompt: "Facebook is not logged in. Sign in in the opened browser window and type 'ready' here:"
+        save_to_variable: facebook_login_ready
+        description: "Manual Facebook login fallback"
+      - action: goto
+        url: "https://www.facebook.com/groups/feed/"
+        wait_until: domcontentloaded
+        description: "Reload the Facebook groups feed after login"
+      - action: wait
+        timeout: 2500
+        description: "Give Facebook time to render again"
+      - action: verify
+        check: url_contains
+        url: "/groups/"
+        timeout: 8000
+        description: "Ensure Facebook groups is now available"
+    description: "Handle Facebook login if needed"
+
+  - action: user_input
+    prompt: "Review the selected groups and post content. Type 'post-all' to continue or anything else to cancel:"
+    save_to_variable: publish_batch
+    description: "Final batch confirmation before any public posting"
+
+  - action: conditional
+    condition: "{{publish_batch}} == post-all"
+    then:
+      - action: for_each
+        items_variable: target_groups
+        item_variable: target_group
+        continue_on_error: true
+        save_results_to: target_group_results
+        description: "Open each selected Facebook group and try to post the content"
+        steps:
+          - action: console_log
+            message: "Opening {{target_group_name}} at {{target_group_url}}"
+            description: "Show which Facebook group is being processed"
+
+          - action: goto
+            url: "{{target_group_url}}"
+            wait_until: domcontentloaded
+            description: "Open the Facebook group page"
+
+          - action: wait
+            timeout: 3500
+            description: "Let the group page settle"
+
+          - action: verify
+            check: selector_exists
+            selector: "div[role='button']:has-text('Write something...')"
+            timeout: 8000
+            optional: true
+            description: "Check whether a composer trigger is visible"
+
+          - action: conditional
+            condition: "{{_verify_result}}"
+            then:
+              - action: click
+                selector: "div[role='button']:has-text('Write something...')"
+                timeout: 8000
+                description: "Open the Facebook group post composer"
+
+              - action: wait
+                selector: "div[role='textbox'][contenteditable='true'][aria-placeholder^='Create a public post']"
+                timeout: 8000
+                description: "Wait for the Facebook composer textbox"
+
+              - action: click
+                selector: "div[role='textbox'][contenteditable='true'][aria-placeholder^='Create a public post']"
+                timeout: 8000
+                description: "Focus the Facebook composer textbox"
+
+              - action: type
+                selector: "div[role='textbox'][contenteditable='true'][aria-placeholder^='Create a public post']"
+                text: "{{post_content}}"
+                clear: false
+                human_like: true
+                timeout: 8000
+                description: "Type the Facebook group post content into the live composer"
+
+              - action: wait
+                timeout: 1500
+                description: "Let Facebook process the typed content"
+
+              - action: verify
+                check: selector_exists
+                selector: "div[role='button'][aria-label='Post']"
+                timeout: 10000
+                description: "Wait for the visible Post button"
+
+              - action: screenshot
+                path: "screenshots/facebook_group_preview_{{target_group_slug}}.png"
+                full_page: false
+                description: "Capture the filled composer before publishing"
+
+              - action: click
+                selector: "div[role='button'][aria-label='Post']"
+                timeout: 8000
+                description: "Publish the Facebook group post"
+
+              - action: wait
+                timeout: 5000
+                description: "Wait for the publish action to complete"
+
+              - action: screenshot
+                path: "screenshots/facebook_group_published_{{target_group_slug}}.png"
+                full_page: false
+                description: "Capture the page after posting"
+            else:
+              - action: console_log
+                message: "Skipping {{target_group_name}} because the Facebook post composer was not found. The group may require membership approval or a different UI path."
+                description: "Skip groups that are not immediately postable"
+    else:
+      - action: console_log
+        message: "Facebook group batch posting was cancelled before any public action."
+        description: "Explain the cancellation result"

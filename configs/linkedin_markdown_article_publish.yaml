@@ -1,0 +1,221 @@
+name: "LinkedIn Markdown Article Publisher"
+description: "Read a local markdown file, open the LinkedIn article editor, publish the article, and capture the published link"
+version: "1.0"
+
+variables:
+  markdown_path: ""
+
+settings:
+  slow_mo: 80
+  profile: "linkedin_main"
+  account_platform: "linkedin"
+
+on_error: pause
+
+steps:
+  - action: conditional
+    condition: "{{markdown_path}} == "
+    then:
+      - action: user_input
+        prompt: "Enter the full path to the markdown file you want to publish:"
+        save_to_variable: markdown_path
+        description: "Choose the source markdown file"
+
+  - action: read_markdown
+    path: "{{markdown_path}}"
+    save_title_to: article_title
+    save_markdown_to: article_body_markdown
+    save_html_to: article_body_html
+    save_preview_to: article_preview_text
+    save_meta_to: article_meta
+    display: true
+    description: "Read and prepare the markdown article"
+
+  - action: console_log
+    message: "Loaded markdown article '{{article_title}}' from {{markdown_path}}"
+    description: "Show the detected title and path"
+
+  - action: goto
+    url: "https://www.linkedin.com/feed/"
+    wait_until: domcontentloaded
+    description: "Open LinkedIn feed"
+
+  - action: wait
+    timeout: 2500
+    description: "Let LinkedIn settle"
+
+  - action: verify
+    check: url_contains
+    url: "/feed/"
+    timeout: 8000
+    optional: true
+    description: "Check whether LinkedIn feed is accessible"
+
+  - action: conditional
+    condition: "{{_verify_result}}"
+    else:
+      - action: user_input
+        prompt: "LinkedIn is not logged in. Export cookies from Cookie-Editor for linkedin.com and paste the JSON here:"
+        save_to_variable: linkedin_cookie_editor_json
+        description: "Paste Cookie-Editor export JSON"
+      - action: save_json
+        variable: linkedin_cookie_editor_json
+        path: "output/linkedin_cookie_editor_import_{{_account_name}}.json"
+        description: "Save the pasted cookie export for debugging"
+      - action: import_cookies
+        source_variable: linkedin_cookie_editor_json
+        save_to_variable: linkedin_imported_cookies_count
+        description: "Inject LinkedIn cookies into the browser context"
+      - action: goto
+        url: "https://www.linkedin.com/feed/"
+        wait_until: domcontentloaded
+        description: "Reload the feed after cookie import"
+      - action: wait
+        timeout: 2500
+        description: "Give the feed time to render"
+      - action: verify
+        check: url_contains
+        url: "/feed/"
+        optional: true
+        timeout: 8000
+        description: "Check whether cookie login worked"
+      - action: conditional
+        condition: "{{_verify_result}}"
+        else:
+          - action: user_input
+            prompt: "Cookie import did not fully log LinkedIn in. Open your LinkedIn feed manually in the browser, then type 'ready' here:"
+            save_to_variable: linkedin_ready
+            description: "Manual fallback after cookie import"
+          - action: goto
+            url: "https://www.linkedin.com/feed/"
+            wait_until: domcontentloaded
+            description: "Reload the feed after manual recovery"
+          - action: wait
+            timeout: 2500
+            description: "Give the feed time to render again"
+          - action: verify
+            check: url_contains
+            url: "/feed/"
+            timeout: 8000
+            description: "Ensure the feed is now available"
+    description: "Handle LinkedIn login if needed"
+
+  - action: goto
+    url: "https://www.linkedin.com/article/new/"
+    wait_until: domcontentloaded
+    description: "Open the LinkedIn article editor directly"
+
+  - action: wait
+    timeout: 30000
+    description: "Wait for the article editor to finish loading"
+
+  - action: verify
+    check: selector_exists
+    selector: "textarea#article-editor-headline__textarea, textarea[placeholder='Title']"
+    timeout: 10000
+    optional: true
+    description: "Check whether the article title field is visible"
+
+  - action: conditional
+    condition: "{{_verify_result}}"
+    else:
+      - action: user_input
+        prompt: "If the article editor did not load automatically, open LinkedIn's article editor manually in the browser and type 'ready' here:"
+        save_to_variable: article_editor_ready
+        description: "Manual editor fallback"
+      - action: wait
+        timeout: 1500
+        description: "Small pause before re-checking the editor"
+      - action: verify
+        check: selector_exists
+        selector: "textarea#article-editor-headline__textarea, textarea[placeholder='Title']"
+        timeout: 10000
+        description: "Ensure the title field is available"
+    description: "Make sure the article editor is open"
+
+  - action: set_content
+    selector: "textarea#article-editor-headline__textarea, textarea[placeholder='Title']"
+    text_variable: article_title
+    clear: true
+    timeout: 10000
+    description: "Set the article title"
+
+  - action: wait
+    timeout: 1000
+    description: "Let the title settle"
+
+  - action: set_content
+    selector: "div[aria-label='Article editor content'][role='textbox'][contenteditable='true'], div.ProseMirror[contenteditable='true']"
+    html_variable: article_body_html
+    clear: true
+    timeout: 10000
+    description: "Insert the markdown body with rich formatting"
+
+  - action: wait
+    timeout: 2000
+    description: "Let LinkedIn process the article body"
+
+  - action: screenshot
+    path: "screenshots/linkedin_markdown_article_preview_{{_account_name}}.png"
+    full_page: true
+    description: "Capture the article preview before publishing"
+
+  - action: user_input
+    prompt: "Review the article in the browser. Type 'publish' to continue or anything else to cancel:"
+    save_to_variable: publish_decision
+    description: "Final manual confirmation"
+
+  - action: conditional
+    condition: "{{publish_decision}} == publish"
+    then:
+      - action: click
+        selector: "button.article-editor-nav__publish, button:has-text('Next')"
+        timeout: 10000
+        description: "Open the publish confirmation flow"
+
+      - action: wait
+        timeout: 2000
+        description: "Wait for any confirmation modal"
+
+      - action: click
+        selector: "button.artdeco-button--primary, button:has-text('Publish')"
+        timeout: 10000
+        description: "Confirm publish in the final dialog"
+
+      - action: wait
+        timeout: 6000
+        description: "Wait for LinkedIn to finish publishing"
+
+      - action: extract_published_link
+        save_to_variable: published_link
+        optional: true
+        description: "Try to capture the published article URL"
+
+      - action: conditional
+        condition: "{{published_link}} != "
+        then:
+          - action: console_log
+            message: "Published link: {{published_link}}"
+            description: "Print the captured published link"
+        else:
+          - action: user_input
+            prompt: "LinkedIn did not expose the link automatically. Open the published article and paste its URL here:"
+            save_to_variable: published_link
+            description: "Manual URL fallback"
+          - action: console_log
+            message: "Published link: {{published_link}}"
+            description: "Print the manually provided published link"
+
+      - action: save_data
+        variable: published_link
+        path: "output/linkedin_last_published_link_{{_account_name}}.txt"
+        description: "Save the published article URL"
+
+      - action: screenshot
+        path: "screenshots/linkedin_markdown_article_published_{{_account_name}}.png"
+        full_page: true
+        description: "Capture the published article page"
+    else:
+      - action: console_log
+        message: "Publishing cancelled. The article draft is still loaded in the browser."
+        description: "Explain the cancellation result"

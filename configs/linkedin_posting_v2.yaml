@@ -1,0 +1,119 @@
+name: "LinkedIn Pro Poster"
+description: "Robust LinkedIn automation for composing and publishing professional posts with LLM assistance."
+version: "2.0"
+
+variables:
+  topic: "the future of AI automation"
+  tone: "thought-provoking and professional"
+  add_hashtags: "true"
+
+settings:
+  slow_mo: 100
+  profile: "linkedin_main"
+
+on_error: pause
+
+steps:
+  # --- STEP 1: INITIALIZATION ---
+  - action: goto
+    url: "https://www.linkedin.com/feed/"
+    wait_until: domcontentloaded
+    description: "Navigate to LinkedIn Feed"
+
+  # --- STEP 2: SESSION VERIFICATION ---
+  - action: snapshot
+    mode: quick
+    save_to_variable: initial_state
+    description: "Analyze page to check login status"
+
+  - action: verify
+    check: selector_exists
+    selector: ".share-box-feed-entry__trigger"
+    timeout: 8000
+    optional: true
+    description: "Look for post composer trigger"
+
+  - action: conditional
+    condition: "{{_verify_result}}"
+    then:
+      - action: wait
+        timeout: 1000
+        description: "Session active, proceeding..."
+    else:
+      - action: user_input
+        prompt: "Session expired or login required. Please log in manually in the browser window, then type 'ready' here:"
+        save_to_variable: login_check
+      - action: goto
+        url: "https://www.linkedin.com/feed/"
+    description: "Ensure user is logged in"
+
+  # --- STEP 3: CONTENT CREATION ---
+  - action: llm_generate
+    prompt: >
+      Create a high-quality LinkedIn post about: {{topic}}.
+      Tone: {{tone}}.
+      Include 2-3 relevant hashtags: {{add_hashtags}}.
+      Formatting: Use line breaks for readability.
+      Keep it between 100-150 words.
+    save_to_variable: draft_content
+    description: "Generate post draft with AI"
+
+  - action: user_input
+    prompt: "Finalize your post content (edit if needed):"
+    default: "{{draft_content}}"
+    save_to_variable: final_content
+    description: "User review of AI draft"
+
+  # --- STEP 4: POSTING FLOW ---
+  - action: click
+    selector: "button.share-box-feed-entry__trigger"
+    timeout: 5000
+    description: "Open the 'Start a post' modal"
+
+  - action: wait
+    selector: ".ql-editor"
+    timeout: 5000
+    description: "Wait for the rich text editor to appear"
+
+  - action: type
+    selector: ".ql-editor"
+    text: "{{final_content}}"
+    human_like: true
+    description: "Type the content slowly to avoid detection"
+
+  - action: wait
+    timeout: 1500
+    description: "Allow UI to update"
+
+  - action: snapshot
+    mode: quick
+    display: true
+    description: "Final verification of content in composer"
+
+  # --- STEP 5: PUBLICATION ---
+  - action: user_input
+    prompt: "Ready to go live? Type 'publish' to confirm or 'cancel' to exit:"
+    save_to_variable: confirm_post
+
+  - action: conditional
+    condition: "{{confirm_post}} == publish"
+    then:
+      - action: click
+        selector: "button.share-actions__primary-action"
+        timeout: 5000
+        description: "Click the Post button"
+      - action: wait
+        timeout: 5000
+        description: "Wait for publication processing"
+      - action: verify
+        check: text_contains
+        text: "Post successful"
+        optional: true
+      - action: screenshot
+        path: "screenshots/linkedin_published_{{_account_name}}.png"
+        full_page: false
+        description: "Proof of publication"
+    else:
+      - action: console_log
+        message: "Post cancelled by user."
+    description: "Final publish decision"

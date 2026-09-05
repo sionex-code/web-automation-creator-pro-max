@@ -1,0 +1,4 @@
+interface:
+  display_name: "Facebook Group Poster"
+  short_description: "Discover Facebook groups and post to relevant saved groups"
+  default_prompt: "Discover Facebook groups, save them to JSON, or post content to the most relevant saved groups."

@@ -1,8 +1,8 @@
 # Web Automation Creator Pro Max
 
-A cross-agent skill for building, repairing, and packaging browser automations. It works with Claude Code, Codex, Antigravity, OpenCode, and other compatible agent systems, using a shared runtime and a strict, verification-first workflow.
+A complete browser automation runtime plus a cross-agent skill on top of it. Clone this repository and you have everything needed to build, run, repair, and package browser automations, no separate download required. It works with Claude Code, Codex, Antigravity, OpenCode, and other compatible agent systems, and just as well from a plain terminal.
 
-Instead of guessing CSS selectors or hand-writing scripts, the skill inspects the live page, captures real selectors, verifies them, and only then generates a runnable automation config.
+Instead of guessing CSS selectors or hand-writing scripts, the runtime inspects the live page, captures real selectors, verifies them, and only then generates a runnable automation config.
 
 ## Table of Contents
 
@@ -11,6 +11,7 @@ Instead of guessing CSS selectors or hand-writing scripts, the skill inspects th
 - [Key Features](#key-features)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Direct CLI Usage](#direct-cli-usage)
 - [Workflow](#workflow)
 - [Examples](#examples)
 - [Project Structure](#project-structure)
@@ -113,6 +114,29 @@ Build an automation that logs into my dashboard and downloads the monthly report
 
 The skill starts the conversation, so no special syntax is required beyond describing the goal.
 
+## Direct CLI Usage
+
+The runtime works on its own, without any agent in the loop, if you want to drive it by hand.
+
+```bash
+git clone https://github.com/sionex-code/web-automation-creator-pro-max.git
+cd web-automation-creator-pro-max
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+# Discover selectors on a live page
+.venv/bin/python run.py --discover-url "https://example.com" --pause --snapshot-mode full
+
+# Verify a specific selector
+.venv/bin/python run.py --discover-url "https://example.com" --check-selector "#login-button"
+
+# Run a config, one step at a time, then in full
+.venv/bin/python run.py configs/scrape_example.yaml --through-step 2
+.venv/bin/python run.py configs/scrape_example.yaml
+```
+
+Copy `configs/accounts.yaml.example` to `configs/accounts.yaml` and fill in your own accounts before running configs that need a login.
+
 ## Workflow
 
 The skill always follows the same sequence, regardless of host agent.
@@ -171,20 +195,49 @@ Result: the skill re-runs discovery on the live page, finds which selectors chan
 
 ```
 web-automation-creator-pro-max/
-  SKILL.md              Skill definition and required workflow
+  SKILL.md                 Skill definition and required workflow
+  RUNTIME_GUIDE.md          Full reference guide for the runtime (source of truth)
+  INSTALL_SKILL.md          Step by step install and packaging reference
+  run.py                    CLI entry point for discovery and running configs
+  requirements.txt          Python dependencies
   agents/
-    openai.yaml          Interface definition for OpenAI-compatible agents
-  configs/                Generated automation configs (created at runtime)
+    openai.yaml              Interface definition for OpenAI-compatible agents
+  core/
+    engine.py                 Runs automation configs step by step
+    discovery.py               Live page inspection and selector discovery
+    snapshot.py                 Compact page-state capture
+    browser.py                  Browser session management
+    account_manager.py          Loads and resolves accounts.yaml
+    config_loader.py            Parses and validates YAML configs
+    interactive.py              Pause and confirm prompts
+    markdown_tools.py           Markdown file handling for publishing configs
+    console.py                  Terminal output formatting
+  scripts/
+    install_agent_bundle.py      Packages and installs skills for every target
+    select_facebook_groups.py    Narrows a saved group catalog by relevance
+  bundles/
+    facebook-group-poster/        Skill template for Facebook group posting
+    linkedin-markdown-article-publisher/  Skill template for LinkedIn publishing
+    medium-markdown-story-publisher/      Skill template for Medium publishing
+    pastebin/                      Skill template for Pastebin publishing
+  configs/
+    accounts.yaml.example          Template for your own accounts.yaml
+    scrape_example.yaml            Minimal scraping example
+    linkedin_*.yaml                 LinkedIn posting and publishing examples
+    pastebin_*.yaml                  Pastebin publishing examples
+    medium_markdown_story_publish.yaml  Medium publishing example
+    facebook_group_*.yaml            Facebook group discovery and posting examples
   README.md
   LICENSE
 ```
 
+Running the runtime creates a few local directories that are never committed: `configs/accounts.yaml` (your real credentials), `profiles/` (browser session data), `screenshots/`, and `output/`. These are already listed in `.gitignore`.
+
 ## Requirements
 
-- A host agent system: Claude Code, Codex, Antigravity, OpenCode, or another compatible platform
-- Python 3.8 or higher
-- The Open Automation Creator runtime
+- Python 3.9 or higher
 - Network access to the websites you intend to automate
+- Optional: a host agent system such as Claude Code, Codex, Antigravity, or OpenCode, if you want the guided conversational workflow instead of driving the CLI directly
 
 ## Core Rules
 

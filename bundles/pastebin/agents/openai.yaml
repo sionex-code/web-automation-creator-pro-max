@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pastebin Poster"
+  short_description: "Create a Pastebin paste from provided text or file"
+  default_prompt: "Create a Pastebin paste. Ask for title, visibility, expiration, and content. Use the runtime's browser discovery if you need to verify selectors, then open pastebin.com, fill the form, submit, and return the paste URL."

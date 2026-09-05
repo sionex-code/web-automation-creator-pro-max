@@ -1,15 +1,15 @@
 ---
 name: open-automation-creator-builder
-description: Build, repair, and package browser automations with the Open Automation Creator runtime at /home/yaser/.open-automation-creator. Use when the user wants to create a new automation skill or config for any website, inspect the live page with browser tooling, capture and verify selectors, and leave behind a reusable runnable result instead of a guessed script.
+description: Build, repair, and package browser automations with the Open Automation Creator runtime. Use when the user wants to create a new automation skill or config for any website, inspect the live page with browser tooling, capture and verify selectors, and leave behind a reusable runnable result instead of a guessed script.
 ---
 
 # Open Automation Creator Builder
 
-Use the Open Automation Creator runtime installed at `/home/yaser/.open-automation-creator`.
+This skill runs on the Open Automation Creator runtime bundled in this same repository (`core/`, `run.py`, `scripts/`, `bundles/`, `configs/`).
 
 Before creating or updating any automation, read:
 
-`/home/yaser/.open-automation-creator/skill.md`
+`RUNTIME_GUIDE.md`
 
 Treat that guide as the source of truth for how to build automations in this
 runtime.
@@ -42,15 +42,16 @@ Always follow this sequence:
    - account to use, only if needed
    - whether the automation should stop before public or destructive actions
 2. Do not ask the user for selectors, CSS, XPath, YAML, or script structure.
-3. Inspect `configs/accounts.yaml` before choosing an account.
+3. Inspect `configs/accounts.yaml` before choosing an account. If it does not
+   exist yet, copy `configs/accounts.yaml.example` to `configs/accounts.yaml`
+   and fill it in with the user.
 4. If browser MCP, browser automation, DevTools, or similar live-page tools are
    available in the host agent, use them first to inspect the real page and
    reach the exact UI state.
 5. Start live discovery before writing YAML:
 
 ```bash
-cd "/home/yaser/.open-automation-creator"
-.venv/bin/.venv/bin/python run.py --discover-url "https://target-site.example" --account ACCOUNT_NAME --pause --snapshot-mode full
+.venv/bin/python run.py --discover-url "https://target-site.example" --account ACCOUNT_NAME --pause --snapshot-mode full
 ```
 
 6. Read the saved discovery `.json`, `.txt`, and screenshot artifacts before
@@ -58,7 +59,7 @@ cd "/home/yaser/.open-automation-creator"
 7. Verify important selectors before locking them into a config:
 
 ```bash
-.venv/bin/.venv/bin/python run.py --discover-url "https://target-site.example" --account ACCOUNT_NAME --pause --snapshot-mode quick --check-selector "SELECTOR_ONE" --check-selector "SELECTOR_TWO"
+.venv/bin/python run.py --discover-url "https://target-site.example" --account ACCOUNT_NAME --pause --snapshot-mode quick --check-selector "SELECTOR_ONE" --check-selector "SELECTOR_TWO"
 ```
 
 8. Write the config into `configs/`. Do not switch to an ad-hoc browser script
@@ -66,13 +67,13 @@ cd "/home/yaser/.open-automation-creator"
 9. Verify incrementally with partial runs:
 
 ```bash
-.venv/bin/.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME --through-step 2
-.venv/bin/.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME --through-step 5
-.venv/bin/.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME
+.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME --through-step 2
+.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME --through-step 5
+.venv/bin/python run.py configs/your_config.yaml --account ACCOUNT_NAME
 ```
 
 10. If the user wants a reusable installed skill, package it and install it with
-   the runtime instead of leaving it as a local-only config.
+    the runtime instead of leaving it as a local-only config.
 
 ## Non-negotiable rules
 
@@ -98,25 +99,34 @@ Start proactively. If the request is vague, ask a compact kickoff such as:
 
 After that, take over the technical work yourself.
 
+## Setup
+
+Before first use, install the Python dependencies:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
 ## Packaging reusable skills
 
 If the user wants the finished automation to be reusable by agents:
 
 - create the config it needs in `configs/`
-- create the skill wrapper bundle
+- create the skill wrapper bundle under `bundles/`
 - install the runtime plus skill wrappers with:
 
 ```bash
-.venv/bin/.venv/bin/python scripts/install_agent_bundle.py
+.venv/bin/python scripts/install_agent_bundle.py
 ```
 
 Use target-specific installation when needed:
 
 ```bash
-.venv/bin/.venv/bin/python scripts/install_agent_bundle.py --target codex
-.venv/bin/.venv/bin/python scripts/install_agent_bundle.py --target claude
-.venv/bin/.venv/bin/python scripts/install_agent_bundle.py --target opencode
-.venv/bin/.venv/bin/python scripts/install_agent_bundle.py --target agents
+.venv/bin/python scripts/install_agent_bundle.py --target codex
+.venv/bin/python scripts/install_agent_bundle.py --target claude
+.venv/bin/python scripts/install_agent_bundle.py --target opencode
+.venv/bin/python scripts/install_agent_bundle.py --target agents
 ```
 
 ## Deliverables

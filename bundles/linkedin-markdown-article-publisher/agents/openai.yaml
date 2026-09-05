@@ -1,0 +1,4 @@
+interface:
+  display_name: "LinkedIn Article Publisher"
+  short_description: "Publish Markdown articles to LinkedIn"
+  default_prompt: "Publish a Markdown file as a LinkedIn article and return the published URL."

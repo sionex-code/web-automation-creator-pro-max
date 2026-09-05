@@ -1,0 +1,206 @@
+name: "LinkedIn Article Poster"
+description: "Generate and post articles to LinkedIn with LLM assistance"
+version: "1.0"
+
+variables:
+  article_topic: ""
+  article_content: ""
+  article_title: ""
+
+settings:
+  slow_mo: 100
+  profile: "linkedin_main"
+
+on_error: pause
+
+steps:
+  # Step 1: Navigate to LinkedIn
+  - action: goto
+    url: "https://www.linkedin.com/feed/"
+    wait_until: networkidle
+    description: "Navigate to LinkedIn feed"
+
+  # Step 2: Take snapshot to check login status
+  - action: snapshot
+    mode: quick
+    save_to_variable: page_state
+    display: true
+    description: "Check if logged in"
+
+  # Step 3: Wait for page to be ready
+  - action: wait
+    timeout: 2000
+    description: "Wait for page to stabilize"
+
+  # Step 4: Check if we're logged in
+  - action: verify
+    check: url_contains
+    url: "/feed"
+    optional: true
+    description: "Verify we're on the feed page"
+
+  # Step 5: Ask user for article topic if not provided
+  - action: conditional
+    condition: "{{article_topic}} == "
+    then:
+      - action: user_input
+        prompt: "What topic should the article be about?"
+        save_to_variable: article_topic
+        description: "Get article topic from user"
+
+  # Step 6: Generate article using LLM
+  - action: llm_generate
+    prompt: |
+      Write a professional LinkedIn article about: {{article_topic}}
+      
+      The article should:
+      - Have an engaging title
+      - Be 300-500 words
+      - Include 3-5 paragraphs
+      - Use professional but conversational tone
+      - Include relevant insights and actionable takeaways
+      - End with a call-to-action or question to engage readers
+      
+      Format the output as:
+      TITLE: [Your catchy title here]
+      
+      [Article content here with proper paragraphs]
+    save_to_variable: generated_article
+    include_snapshot: false
+    description: "Generate article content with LLM"
+
+  # Step 7: Let user review and edit the article
+  - action: user_input
+    prompt: |
+      Review the generated article below. You can edit it or press Enter to use as-is:
+      
+      {{generated_article}}
+      
+      Enter your edited version (or press Enter to keep):
+    default: "{{generated_article}}"
+    save_to_variable: final_article
+    description: "User reviews and edits article"
+
+  # Step 8: Ask user if they want to post now
+  - action: user_input
+    prompt: "Ready to post this article to LinkedIn? Type 'yes' to proceed or 'no' to save and exit:"
+    save_to_variable: confirm_post
+    description: "Confirm posting"
+
+  # Step 9: Save article to file for reference
+  - action: save_data
+    variable: final_article
+    path: "output/linkedin_article_{{article_topic}}.txt"
+    description: "Save article to file"
+
+  # Step 10: Post to LinkedIn if confirmed
+  - action: conditional
+    condition: "{{confirm_post}} == yes"
+    then:
+      # Navigate to article creation
+      - action: snapshot
+        mode: full
+        save_to_variable: feed_page
+        display: true
+        description: "Analyze feed page for post button"
+
+      # Click on "Start a post" or "Write article" button
+      - action: click
+        selector: "button[aria-label*='Start a post'], button:has-text('Start a post'), .share-box-feed-entry__trigger"
+        timeout: 10000
+        optional: true
+        description: "Click start post button"
+
+      - action: wait
+        timeout: 2000
+        description: "Wait for post dialog"
+
+      # Take snapshot of post dialog
+      - action: snapshot
+        mode: full
+        save_to_variable: post_dialog
+        display: true
+        description: "Analyze post creation dialog"
+
+      # Look for "Write article" option
+      - action: click
+        selector: "button:has-text('Write article'), [aria-label*='Write article'], .share-creation-state__write-article"
+        timeout: 10000
+        optional: true
+        description: "Click write article button"
+
+      - action: wait
+        timeout: 3000
+        description: "Wait for article editor to load"
+
+      # Take snapshot of article editor
+      - action: snapshot
+        mode: full
+        save_to_variable: article_editor
+        display: true
+        description: "Analyze article editor"
+
+      # Type the article content
+      - action: type
+        selector: "div[contenteditable='true'], .ql-editor, [data-placeholder*='title']"
+        text: "{{final_article}}"
+        human_like: true
+        clear: true
+        description: "Type article content"
+
+      - action: wait
+        timeout: 2000
+        description: "Wait after typing"
+
+      # Take screenshot before publishing
+      - action: screenshot
+        path: "screenshots/linkedin_article_preview.png"
+        full_page: true
+        description: "Screenshot of article before publishing"
+
+      # Final confirmation
+      - action: user_input
+        prompt: "Article is ready. Type 'publish' to post it now, or 'cancel' to stop:"
+        save_to_variable: final_confirm
+        description: "Final confirmation before publishing"
+
+      - action: conditional
+        condition: "{{final_confirm}} == publish"
+        then:
+          # Click publish button
+          - action: click
+            selector: "button:has-text('Publish'), button:has-text('Post'), [aria-label*='Publish'], [aria-label*='Post']"
+            timeout: 10000
+            description: "Click publish button"
+
+          - action: wait
+            timeout: 5000
+            description: "Wait for article to publish"
+
+          # Verify publication
+          - action: verify
+            check: text_contains
+            text: "published"
+            optional: true
+            description: "Verify article was published"
+
+          # Take final screenshot
+          - action: screenshot
+            path: "screenshots/linkedin_article_published.png"
+            full_page: true
+            description: "Screenshot of published article"
+
+          - action: user_input
+            prompt: "Article posted! Press Enter to continue..."
+            save_to_variable: done
+            description: "Notify user of success"
+        else:
+          - action: user_input
+            prompt: "Publishing cancelled. Press Enter to exit..."
+            save_to_variable: cancelled
+            description: "Notify user of cancellation"
+    else:
+      - action: user_input
+        prompt: "Article saved to output/ folder. You can post it later. Press Enter to exit..."
+        save_to_variable: saved
+        description: "Notify user article was saved"

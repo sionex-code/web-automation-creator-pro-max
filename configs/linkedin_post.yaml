@@ -1,0 +1,139 @@
+name: "LinkedIn Post"
+description: "Log into LinkedIn, compose and publish a post about a given topic"
+version: "1.0"
+
+variables:
+  topic: "your topic here"
+  post_tone: "professional yet engaging"
+
+settings:
+  slow_mo: 80
+  profile: "linkedin_main"
+
+on_error: pause
+
+steps:
+  # 1. Navigate to LinkedIn
+  - action: goto
+    url: "https://www.linkedin.com/feed/"
+    wait_until: domcontentloaded
+    description: "Open LinkedIn feed"
+
+  # 2. Snapshot to check login state
+  - action: snapshot
+    mode: quick
+    save_to_variable: login_check
+    description: "Check if logged in"
+
+  # 3. Verify logged in (look for feed or post button)
+  - action: verify
+    check: selector_exists
+    selector: "button.share-box-feed-entry__trigger"
+    timeout: 5000
+    optional: true
+    description: "Check for post composer button"
+
+  # 4. If not logged in, pause for manual login
+  - action: conditional
+    condition: "{{_verify_result}}"
+    else:
+      - action: user_input
+        prompt: "You are not logged in. Please log in manually in the browser, then type 'done'."
+        save_to_variable: login_done
+      - action: wait
+        timeout: 3000
+      - action: goto
+        url: "https://www.linkedin.com/feed/"
+    description: "Handle login if needed"
+
+  # 5. Wait for feed to load
+  - action: wait
+    network_idle: true
+    description: "Wait for feed to fully load"
+
+  # 6. Take full snapshot for LLM context
+  - action: snapshot
+    mode: full
+    save_to_variable: feed_snapshot
+    description: "Capture feed state"
+
+  # 7. Ask LLM to generate post content
+  - action: llm_generate
+    prompt: >
+      Write a compelling LinkedIn post about {{topic}}.
+      Tone: {{post_tone}}.
+      Include a call to action.
+      Keep it under 200 words.
+      Do NOT use hashtags excessively — max 3.
+      Make it sound human and authentic.
+    save_to_variable: post_content
+    description: "Generate post content"
+
+  # 8. Confirm post content with user
+  - action: user_input
+    prompt: "Review the post content above. Edit it or press Enter to use as-is:"
+    save_to_variable: final_post
+    default: "{{post_content}}"
+    description: "User reviews post"
+
+  # 9. Click the "Start a post" button
+  - action: click
+    selector: "button.share-box-feed-entry__trigger"
+    timeout: 10000
+    description: "Open post composer"
+
+  # 10. Wait for composer modal
+  - action: wait
+    selector: ".ql-editor[data-placeholder]"
+    timeout: 10000
+    description: "Wait for text editor"
+
+  # 11. Type the post content
+  - action: click
+    selector: ".ql-editor[data-placeholder]"
+    description: "Focus the editor"
+
+  - action: type
+    selector: ".ql-editor"
+    text: "{{final_post}}"
+    human_like: true
+    description: "Type the post"
+
+  # 12. Wait a moment
+  - action: wait
+    timeout: 2000
+
+  # 13. Snapshot to verify content
+  - action: snapshot
+    mode: quick
+    save_to_variable: composer_snapshot
+    display: true
+    description: "Verify composer content"
+
+  # 14. Confirm before posting
+  - action: user_input
+    prompt: "Post looks good? Type 'post' to publish or 'cancel' to abort:"
+    save_to_variable: post_decision
+
+  # 15. Click Post button
+  - action: conditional
+    condition: "{{post_decision}} == post"
+    then:
+      - action: click
+        selector: "button.share-actions__primary-action"
+        timeout: 5000
+        description: "Click Post button"
+      - action: wait
+        timeout: 5000
+      - action: verify
+        check: url_contains
+        url: "/feed/"
+        description: "Verify returned to feed"
+      - action: screenshot
+        path: "screenshots/linkedin_post_done.png"
+        description: "Screenshot of posted content"
+    else:
+      - action: user_input
+        prompt: "Post cancelled. Press Enter to close."
+        save_to_variable: _discard
+    description: "Post or cancel"

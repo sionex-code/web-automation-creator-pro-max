@@ -1,0 +1,93 @@
+name: "Pastebin Create Paste"
+description: "Create a new paste on Pastebin anonymously and capture the resulting URL"
+version: "1.1"
+
+variables:
+  paste_content: ""
+  paste_title: ""
+
+settings:
+  slow_mo: 100
+  profile: "default"
+
+on_error: pause
+
+steps:
+  - action: goto
+    url: "https://pastebin.com"
+    description: "Navigate to Pastebin homepage"
+
+  - action: wait
+    duration: 2000
+    description: "Wait for page to fully load"
+
+  - action: verify
+    check: selector_exists
+    selector: "#postform-text"
+    description: "Verify paste textarea is available"
+
+  - action: user_input
+    prompt: "Enter the content for your paste:"
+    save_to_variable: paste_content
+    description: "Get paste content from user"
+
+  - action: user_input
+    prompt: "Enter a title for your paste (optional):"
+    save_to_variable: paste_title
+    required: false
+    description: "Get paste title from user"
+
+  - action: type
+    selector: "#postform-text"
+    text: "{{paste_content}}"
+    description: "Type paste content into textarea"
+
+  - action: type
+    selector: "#postform-name"
+    text: "{{paste_title}}"
+    optional: true
+    description: "Type paste title"
+
+  - action: screenshot
+    filename: "pastebin_preview_{{timestamp}}.png"
+    description: "Capture preview before submission"
+
+  - action: extract
+    selector: "#postform-text"
+    attribute: "value"
+    save_to_variable: final_paste_content
+    description: "Extract final paste content"
+
+  - action: console_log
+    message: "Paste is ready to submit. Content length: {{final_paste_content.length}} characters"
+    description: "Log paste details"
+
+  - action: user_input
+    prompt: "Ready to create paste. Press Enter to continue or Ctrl+C to cancel..."
+    save_to_variable: confirmation
+    description: "Final confirmation before creating paste"
+
+  - action: click
+    selector: "button.btn.-big"
+    description: "Click the 'Create New Paste' button"
+
+  - action: wait
+    duration: 8000
+    description: "Wait for paste to be created and page to redirect"
+
+  - action: js_eval
+    code: "window.location.href"
+    save_to_variable: paste_url
+    description: "Extract the paste URL from browser"
+
+  - action: console_log
+    message: "Paste created successfully! URL: {{paste_url}}"
+    description: "Display the paste URL"
+
+  - action: screenshot
+    filename: "pastebin_created_{{timestamp}}.png"
+    description: "Capture screenshot of created paste"
+
+  - action: wait
+    duration: 2000
+    description: "Keep browser open to view the result"

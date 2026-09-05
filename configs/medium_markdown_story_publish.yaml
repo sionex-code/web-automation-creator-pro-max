@@ -1,0 +1,434 @@
+name: "Medium Markdown Story Publisher"
+description: "Publish a local markdown file to Medium with full formatting and a cover image, stopping for review before publish"
+version: "1.0"
+
+variables:
+  markdown_path: ""
+  cover_image_path: ""
+  topics: ""
+  paywall: "no"
+  publish_decision: ""
+
+settings:
+  slow_mo: 70
+  profile: "medium_main"
+  account_platform: "medium"
+
+on_error: pause
+
+steps:
+  # ── 0. Inputs ─────────────────────────────────────────────────────────────
+  - action: conditional
+    condition: "{{markdown_path}} == "
+    then:
+      - action: user_input
+        prompt: "Full path to the markdown file you want to publish:"
+        save_to_variable: markdown_path
+        description: "Choose the source markdown file"
+    description: "Ask for the markdown file if it was not supplied"
+
+  - action: read_markdown
+    path: "{{markdown_path}}"
+    save_title_to: article_title
+    save_markdown_to: article_body_markdown
+    save_html_to: article_body_html
+    save_preview_to: article_preview_text
+    save_meta_to: article_meta
+    display: true
+    description: "Read the markdown file and prepare the title and HTML body"
+
+  - action: console_log
+    message: "Story '{{article_title}}' loaded from {{markdown_path}}"
+    description: "Confirm what will be published"
+
+  - action: conditional
+    condition: "{{cover_image_path}} == "
+    then:
+      - action: user_input
+        prompt: "Full path to the cover image (press Enter to skip):"
+        save_to_variable: cover_image_path
+        default: "skip"
+        description: "Choose the cover image"
+    description: "Ask for the cover image if it was not supplied"
+
+  # ── 4. Open the editor ────────────────────────────────────────────────────
+  - action: goto
+    url: "https://medium.com/new-story"
+    wait_until: domcontentloaded
+    description: "Open a fresh Medium story editor"
+
+  - action: wait
+    timeout: 9000
+    description: "Let the Medium editor finish booting"
+
+  - action: verify
+    check: selector_exists
+    selector: "[data-testid=\"editorTitleParagraph\"]"
+    timeout: 12000
+    optional: true
+    description: "Check whether the editor opened (i.e. the session is valid)"
+
+  - action: conditional
+    condition: "{{_verify_result}}"
+    else:
+      - action: user_input
+        prompt: "Medium is not logged in. Export cookies for medium.com with Cookie-Editor and paste the JSON here (or type 'manual' to log in yourself):"
+        save_to_variable: medium_cookie_editor_json
+        description: "Paste Cookie-Editor export JSON"
+      - action: conditional
+        condition: "{{medium_cookie_editor_json}} != manual"
+        then:
+          - action: save_json
+            variable: medium_cookie_editor_json
+            path: "output/medium_cookie_editor_import_{{_account_name}}.json"
+            description: "Keep the pasted cookie export for debugging"
+          - action: import_cookies
+            source_variable: medium_cookie_editor_json
+            save_to_variable: medium_imported_cookies_count
+            description: "Inject the Medium cookies into the browser profile"
+        else:
+          - action: user_input
+            prompt: "Log into Medium in the open browser window, then type 'ready' here:"
+            save_to_variable: medium_manual_login
+            description: "Manual login fallback"
+      - action: goto
+        url: "https://medium.com/new-story"
+        wait_until: domcontentloaded
+        description: "Reopen the editor after login"
+      - action: wait
+        timeout: 9000
+        description: "Let the editor boot again"
+      - action: verify
+        check: selector_exists
+        selector: "[data-testid=\"editorTitleParagraph\"]"
+        timeout: 12000
+        description: "Ensure the editor is now available"
+    description: "Recover the Medium session if the editor did not open"
+
+  # ── 8. Build the paste payload ────────────────────────────────────────────
+  - action: js_eval
+    code: |
+      () => {
+        const old = document.getElementById('oac-payload');
+        if (old) old.remove();
+        const holder = document.createElement('div');
+        holder.id = 'oac-payload';
+        holder.setAttribute('contenteditable', 'true');
+        holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:640px;height:140px;overflow:hidden;';
+        holder.innerHTML = '<h1 id="oac-title" style="display:block;min-height:24px;width:600px;"></h1><div id="oac-body" style="display:block;min-height:24px;width:600px;"></div>';
+        document.body.appendChild(holder);
+        return 'holder-ready';
+      }
+    save_to_variable: holder_status
+    description: "Create an off-screen holder so the article HTML needs no escaping"
+
+  - action: set_content
+    selector: "#oac-title"
+    text_variable: article_title
+    clear: true
+    timeout: 8000
+    description: "Load the story title into the payload"
+
+  - action: set_content
+    selector: "#oac-body"
+    html_variable: article_body_html
+    clear: true
+    timeout: 8000
+    description: "Load the story body HTML into the payload"
+
+  - action: js_eval
+    code: |
+      async () => {
+        const holder = document.getElementById('oac-payload');
+        if (!holder) return 'failed: holder missing';
+        const body = holder.querySelector('#oac-body');
+        if (body) {
+          while (body.firstChild) holder.appendChild(body.firstChild);
+          body.remove();
+        }
+        [...holder.childNodes].forEach(n => { if (n.nodeType === 3 && !n.nodeValue.trim()) n.remove(); });
+        holder.querySelectorAll('p, h1, h2, h3, h4, h5, li, blockquote, pre').forEach(el => {
+          if (!el.textContent.trim() && !el.querySelector('img')) el.remove();
+        });
+        const html = holder.innerHTML.replace(/>\s+</g, '><').trim();
+        const text = holder.innerText;
+        try {
+          await navigator.clipboard.write([new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' })
+          })]);
+          holder.remove();
+          return 'ok:' + html.length;
+        } catch (e) {
+          holder.remove();
+          return 'failed: ' + String(e);
+        }
+      }
+    save_to_variable: clipboard_status
+    description: "Clean the payload and copy title plus body to the clipboard"
+
+  - action: console_log
+    message: "Payload prepared: {{clipboard_status}}"
+    description: "Report the payload state"
+
+  # ── 13. Fill the story ────────────────────────────────────────────────────
+  - action: click
+    selector: "[data-testid=\"editorTitleParagraph\"]"
+    timeout: 10000
+    description: "Put the caret in the empty title line"
+
+  - action: press
+    key: "Control+V"
+    description: "Paste the title and the formatted body in one action"
+
+  - action: wait
+    timeout: 5000
+    description: "Let Medium convert the paste into its own blocks"
+
+  - action: verify
+    check: selector_exists
+    selector: "div.section-inner .graf-after--h3"
+    timeout: 12000
+    description: "Confirm the body landed under the title"
+
+  # ── 17. Cover image ──────────────────────────────────────────────────────
+  - action: conditional
+    condition: "{{cover_image_path}} != skip"
+    then:
+      - action: js_eval
+        code: |
+          () => {
+            const editor = document.querySelector('div.postArticle-content[contenteditable="true"]');
+            const title = document.querySelector('[data-testid="editorTitleParagraph"]');
+            if (!editor || !title) return 'failed: editor or title missing';
+            editor.focus();
+            const range = document.createRange();
+            range.selectNodeContents(title);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return 'caret-at-title-end';
+          }
+        save_to_variable: caret_status
+        description: "Place the caret at the end of the title"
+
+      - action: press
+        key: "Enter"
+        description: "Open an empty line directly under the title for the cover image"
+
+      - action: wait
+        timeout: 2000
+        description: "Let the inline add-media button attach"
+
+      - action: click
+        selector: "[data-testid=\"editorAddButton\"]"
+        timeout: 10000
+        description: "Open the add-media menu"
+
+      - action: wait
+        timeout: 1800
+        description: "Let the media menu expand"
+
+      - action: click
+        selector: "button[aria-label=\"Add an image\"]"
+        timeout: 10000
+        description: "Trigger the image picker so Medium creates its file input"
+
+      - action: wait
+        timeout: 2500
+        description: "Wait for the file input to attach"
+
+      - action: upload
+        selector: "input[name=\"uploadedFile\"]"
+        file: "{{cover_image_path}}"
+        description: "Upload the cover image"
+
+      - action: wait
+        timeout: 12000
+        description: "Wait for Medium to finish uploading the image"
+
+      - action: verify
+        check: selector_exists
+        selector: "div.section-inner figure img"
+        timeout: 20000
+        description: "Confirm the cover image is in the story"
+    else:
+      - action: console_log
+        message: "No cover image requested — publishing text only."
+        description: "Explain the skipped image"
+    description: "Insert the cover image directly under the title so Medium uses it as the preview image"
+
+  # ── 18. Save and review ──────────────────────────────────────────────────
+  - action: wait
+    timeout: 8000
+    description: "Let Medium autosave the draft"
+
+  - action: js_eval
+    code: "() => location.href"
+    save_to_variable: draft_url
+    description: "Capture the draft URL"
+
+  - action: console_log
+    message: "Draft saved: {{draft_url}}"
+    description: "Report the draft URL"
+
+  - action: save_data
+    variable: draft_url
+    path: "output/medium_last_draft_url_{{_account_name}}.txt"
+    description: "Save the draft URL for later"
+
+  - action: screenshot
+    path: "screenshots/medium_draft_{{_account_name}}.png"
+    full_page: true
+    description: "Capture the finished draft"
+
+  - action: user_input
+    prompt: "Review the story in the browser. Type 'publish' to publish it now, or anything else to keep it as a draft:"
+    save_to_variable: publish_decision
+    description: "Human confirmation before anything becomes public"
+
+  # ── 23. Publish ──────────────────────────────────────────────────────────
+  - action: conditional
+    condition: "{{publish_decision}} == publish"
+    then:
+      - action: click
+        selector: "button.js-publishButton"
+        timeout: 12000
+        description: "Open the publish panel"
+
+      - action: wait
+        timeout: 5000
+        description: "Let the publish panel render"
+
+      - action: verify
+        check: selector_exists
+        selector: "input[role=\"combobox\"]"
+        timeout: 12000
+        description: "Confirm the publish panel is open"
+
+      - action: conditional
+        condition: "{{topics}} != "
+        then:
+          - action: js_eval
+            code: |
+              () => {
+                const old = document.getElementById('oac-topics');
+                if (old) old.remove();
+                const holder = document.createElement('div');
+                holder.id = 'oac-topics';
+                holder.setAttribute('contenteditable', 'true');
+                holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:400px;min-height:24px;';
+                document.body.appendChild(holder);
+                return 'topics-holder-ready';
+              }
+            save_to_variable: topics_holder_status
+            description: "Create a holder so topics need no escaping"
+
+          - action: set_content
+            selector: "#oac-topics"
+            text_variable: topics
+            clear: true
+            timeout: 8000
+            description: "Load the topics list into the holder"
+
+          - action: js_eval
+            code: |
+              () => {
+                const holder = document.getElementById('oac-topics');
+                if (!holder) return '[]';
+                const list = (holder.innerText || '')
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(Boolean)
+                  .slice(0, 5);
+                holder.remove();
+                return JSON.stringify(list);
+              }
+            save_to_variable: topics_list
+            description: "Turn the topics text into a list of at most five topics"
+
+          - action: for_each
+            items_variable: topics_list
+            item_variable: topic
+            steps:
+              - action: type
+                selector: "input[role=\"combobox\"]"
+                text: "{{topic}}"
+                clear: true
+                human_like: true
+                timeout: 10000
+                description: "Type the topic"
+              - action: wait
+                timeout: 1800
+                description: "Let Medium fetch topic suggestions"
+              - action: press
+                key: "Enter"
+                description: "Commit the topic"
+              - action: wait
+                timeout: 1500
+                description: "Let the topic chip render"
+            description: "Add each topic to the story"
+        description: "Add topics when they were supplied"
+
+      - action: conditional
+        condition: "{{paywall}} != yes"
+        then:
+          - action: js_eval
+            code: |
+              () => {
+                const cb = document.querySelector('input[type="checkbox"]');
+                if (!cb) return 'no-checkbox';
+                if (!cb.checked) return 'already-unchecked';
+                (cb.closest('label') || cb).click();
+                return 'unchecked';
+              }
+            save_to_variable: paywall_status
+            description: "Turn off 'Paywall this story' so the post stays free"
+          - action: console_log
+            message: "Paywall setting: {{paywall_status}}"
+            description: "Report the paywall state"
+        description: "Respect the requested paywall setting"
+
+      - action: screenshot
+        path: "screenshots/medium_publish_panel_{{_account_name}}.png"
+        full_page: true
+        description: "Capture the publish panel before the final click"
+
+      - action: click
+        selector: "button:has-text(\"Publish\"):not(.js-publishButton)"
+        timeout: 12000
+        description: "Publish the story"
+
+      - action: wait
+        timeout: 12000
+        description: "Wait for Medium to finish publishing"
+
+      - action: js_eval
+        code: |
+          () => {
+            const canonical = document.querySelector('link[rel="canonical"]');
+            const og = document.querySelector('meta[property="og:url"]');
+            return (canonical && canonical.href) || (og && og.content) || location.href;
+          }
+        save_to_variable: published_url
+        description: "Capture the published story URL"
+
+      - action: console_log
+        message: "Published: {{published_url}}"
+        description: "Report the published URL"
+
+      - action: save_data
+        variable: published_url
+        path: "output/medium_last_published_url_{{_account_name}}.txt"
+        description: "Save the published story URL"
+
+      - action: screenshot
+        path: "screenshots/medium_published_{{_account_name}}.png"
+        full_page: true
+        description: "Capture the published story"
+    else:
+      - action: console_log
+        message: "Not published. The story is saved as a Medium draft: {{draft_url}}"
+        description: "Explain the draft-only outcome"
+    description: "Publish only after explicit confirmation"

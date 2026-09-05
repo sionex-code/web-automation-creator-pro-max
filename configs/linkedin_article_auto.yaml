@@ -1,0 +1,112 @@
+name: "LinkedIn Article Auto-Poster"
+description: "Automatically post a test article to LinkedIn without prompts"
+version: "1.0"
+
+variables:
+  article_content: |
+    TITLE: Testing LinkedIn Article Publishing - A Quick Hello from Automation
+    
+    Hello LinkedIn community!
+    
+    This is a quick test post to verify my new article publishing workflow. I'm excited to share that I've set up an automated system that helps me create and publish content more efficiently.
+    
+    Why Automation Matters
+    
+    In today's fast-paced digital world, having streamlined workflows can make a significant difference in maintaining consistent content creation. This test represents the first step in a journey toward more regular and valuable content sharing.
+    
+    What's Next
+    
+    If you're seeing this post, it means the automation is working perfectly! I'm looking forward to sharing more insights, experiences, and valuable content with you all in the coming weeks.
+    
+    Your Turn
+    
+    Have you experimented with automation in your content creation process? I'd love to hear about your experiences in the comments below.
+
+settings:
+  slow_mo: 100
+  profile: "linkedin_main"
+  headless: false
+
+on_error: pause
+
+steps:
+  # Navigate to LinkedIn
+  - action: goto
+    url: "https://www.linkedin.com/feed/"
+    wait_until: networkidle
+    description: "Navigate to LinkedIn feed"
+
+  - action: wait
+    timeout: 3000
+    description: "Wait for page to load"
+
+  # Take snapshot to see the page
+  - action: snapshot
+    mode: full
+    save_to_variable: feed_page
+    display: true
+    description: "Analyze LinkedIn feed page"
+
+  # Save article for reference
+  - action: save_data
+    variable: article_content
+    path: "output/test_article.txt"
+    description: "Save article to file"
+
+  # Click "Start a post" button
+  - action: click
+    selector: "button.share-box-feed-entry__trigger, button[aria-label*='Start a post']"
+    timeout: 10000
+    description: "Click start post button"
+
+  - action: wait
+    timeout: 2000
+    description: "Wait for dialog"
+
+  # Take snapshot of the dialog
+  - action: snapshot
+    mode: full
+    save_to_variable: post_dialog
+    display: true
+    description: "Analyze post dialog"
+
+  # Type the article in the post box
+  - action: type
+    selector: "div.ql-editor[contenteditable='true'], div[role='textbox']"
+    text: "{{article_content}}"
+    human_like: true
+    clear: true
+    description: "Type article content"
+
+  - action: wait
+    timeout: 2000
+    description: "Wait after typing"
+
+  # Take screenshot before posting
+  - action: screenshot
+    path: "screenshots/linkedin_test_article_ready.png"
+    full_page: true
+    description: "Screenshot before posting"
+
+  # Click Post button
+  - action: click
+    selector: "button.share-actions__primary-action, button[aria-label*='Post']"
+    timeout: 10000
+    description: "Click post button"
+
+  - action: wait
+    timeout: 5000
+    description: "Wait for post to publish"
+
+  # Take final screenshot
+  - action: screenshot
+    path: "screenshots/linkedin_test_article_posted.png"
+    full_page: true
+    description: "Screenshot after posting"
+
+  # Verify it posted
+  - action: verify
+    check: text_contains
+    text: "Testing LinkedIn Article"
+    optional: true
+    description: "Verify article appears in feed"

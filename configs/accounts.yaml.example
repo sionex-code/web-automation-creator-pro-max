@@ -1,0 +1,19 @@
+accounts:
+  - name: main_linkedin
+    platform: linkedin
+    profile_dir: profiles/linkedin_main
+    credentials:
+      email: "your_email@example.com"
+    variables:
+      display_name: "Your Name"
+      company: "Your Company"
+      website_url: "https://example.com"
+    tags: [primary, linkedin]
+
+  - name: main_medium
+    platform: medium
+    profile_dir: profiles/medium_main
+    variables:
+      display_name: "Your Name"
+      website_url: "https://example.com"
+    tags: [primary, medium]

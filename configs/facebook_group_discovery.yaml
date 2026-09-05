@@ -1,0 +1,130 @@
+name: "Facebook Group Discovery"
+description: "Open Facebook, let the user navigate to group search results or joined-group views, extract visible groups, and save them to JSON"
+version: "1.0"
+
+variables:
+  discovery_page_url: "https://www.facebook.com/groups/feed/"
+  discovered_groups_path: ""
+  discovery_ready: ""
+
+settings:
+  slow_mo: 80
+  profile: "default"
+  account_platform: "facebook"
+
+on_error: pause
+
+steps:
+  - action: conditional
+    condition: "{{discovered_groups_path}} == "
+    then:
+      - action: user_input
+        prompt: "Enter the JSON path where discovered Facebook groups should be saved:"
+        default: "output/facebook_groups.json"
+        save_to_variable: discovered_groups_path
+        description: "Choose the discovery output path"
+    description: "Resolve the JSON output path"
+
+  - action: goto
+    url: "{{discovery_page_url}}"
+    wait_until: domcontentloaded
+    description: "Open Facebook groups"
+
+  - action: wait
+    timeout: 3000
+    description: "Let Facebook settle"
+
+  - action: user_input
+    prompt: "Log in if needed, open the Facebook groups search or listing page you want to capture, scroll until the desired groups are visible, then type 'ready':"
+    save_to_variable: discovery_ready
+    description: "Manual navigation before extraction"
+
+  - action: snapshot
+    mode: quick
+    save_to_variable: facebook_group_discovery_snapshot
+    display: true
+    description: "Capture the current Facebook discovery page"
+
+  - action: js_eval
+    save_to_variable: discovered_groups_payload
+    code: |
+      () => {
+        const slugify = (value) =>
+          (value || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 80) || "group";
+
+        const excludePattern = /\/groups\/(?:feed|discover|explore|create|search|notifications|category|learn|membership_questions)/i;
+        const cards = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
+        const groups = [];
+        const seen = new Set();
+
+        for (const anchor of cards) {
+          const href = anchor.getAttribute("href") || "";
+          let url;
+          try {
+            url = new URL(href, location.origin);
+          } catch (error) {
+            continue;
+          }
+
+          if (!/\/groups\//i.test(url.pathname)) {
+            continue;
+          }
+          if (excludePattern.test(url.pathname)) {
+            continue;
+          }
+
+          const normalizedUrl = `${url.origin}${url.pathname}`.replace(/\/+$/, "/");
+          if (seen.has(normalizedUrl)) {
+            continue;
+          }
+
+          const container =
+            anchor.closest('[role="article"]') ||
+            anchor.closest('[role="listitem"]') ||
+            anchor.parentElement;
+          const textBlock = (container?.innerText || anchor.innerText || "").trim();
+          const lines = textBlock
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          const name = (anchor.innerText || lines[0] || url.pathname.split("/").filter(Boolean).pop() || "Group").trim();
+          const privacy = lines.find((line) => /\b(public|private)\b/i.test(line)) || "";
+          const description = lines
+            .filter((line) => line !== name && line !== privacy)
+            .slice(0, 4)
+            .join(" ");
+
+          groups.push({
+            name,
+            url: normalizedUrl,
+            privacy,
+            description,
+            slug: slugify(name),
+            source_url: location.href
+          });
+          seen.add(normalizedUrl);
+        }
+
+        return {
+          source_url: location.href,
+          title: document.title,
+          captured_group_count: groups.length,
+          groups
+        };
+      }
+    description: "Extract the visible Facebook group cards from the current page"
+
+  - action: save_json
+    variable: discovered_groups_payload
+    path: "{{discovered_groups_path}}"
+    description: "Save the discovered Facebook groups to JSON"
+
+  - action: screenshot
+    path: "screenshots/facebook_group_discovery_capture.png"
+    full_page: false
+    description: "Capture proof of the discovery page"

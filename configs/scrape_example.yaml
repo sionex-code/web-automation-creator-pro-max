@@ -1,0 +1,45 @@
+name: "Web Scraper Example"
+description: "Scrape product data from a website"
+version: "1.0"
+
+variables:
+  target_url: "https://example.com/products"
+
+settings:
+  slow_mo: 50
+
+steps:
+  - action: goto
+    url: "{{target_url}}"
+    description: "Navigate to target page"
+
+  - action: wait
+    network_idle: true
+
+  - action: snapshot
+    mode: full
+    save_to_variable: page_snapshot
+    description: "Analyze page structure"
+
+  - action: llm_decide
+    question: "Based on the snapshot, what CSS selector targets the product list items?"
+    save_to_variable: product_selector
+    description: "LLM identifies selectors"
+
+  - action: js_eval
+    code: >
+      (() => {
+        const items = document.querySelectorAll('{{product_selector}}');
+        return Array.from(items).map(el => ({
+          title: el.querySelector('h2,h3,.title')?.innerText,
+          price: el.querySelector('.price,[class*=price]')?.innerText,
+          link: el.querySelector('a')?.href
+        }));
+      })()
+    save_to_variable: products
+    description: "Extract product data"
+
+  - action: save_data
+    variable: products
+    path: "output/products.json"
+    description: "Save scraped data"

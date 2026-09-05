@@ -1,0 +1,4 @@
+interface:
+  display_name: "Medium Story Publisher"
+  short_description: "Publish Markdown stories to Medium"
+  default_prompt: "Publish a Markdown file to Medium with a cover image and return the story URL."
