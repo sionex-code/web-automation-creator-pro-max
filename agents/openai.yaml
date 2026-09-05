@@ -1,0 +1,4 @@
+interface:
+  display_name: "Open Automation Creator Builder"
+  short_description: "Create verified browser automation skills"
+  default_prompt: "Build or repair a browser automation skill. Start by asking only 2 to 4 short non-technical questions, then inspect the live page with browser or MCP tooling, capture real selectors, verify them step by step, and only then write a reusable config and package it. Never ask the user for selectors or script structure."
